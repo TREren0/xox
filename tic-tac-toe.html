@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tic-Tac-Toe | XOX</title>
+  <style>
+    :root{--bg:#0f172a;--card:#0b1220;--accent:#06b6d4;--muted:#94a3b8;--win:#10b981}
+    *{box-sizing:border-box}
+    body{font-family:Inter,Segoe UI,Roboto,Arial;background:linear-gradient(180deg,#071024 0%,#071733 100%);color:#e6eef8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;margin:0}
+    .wrap{width:100%;max-width:920px;background:rgba(255,255,255,0.03);border-radius:12px;padding:18px;box-shadow:0 8px 30px rgba(2,6,23,0.7)}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+    h1{font-size:20px;margin:0}
+    .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .btn{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.04);color:var(--muted);padding:8px 12px;border-radius:8px;cursor:pointer;white-space:nowrap}
+    .btn.primary{background:var(--accent);color:#042028;border:none}
+    .board{display:grid;gap:8px;padding:12px;background:rgba(255,255,255,0.01);border-radius:8px;width:100%;max-width:640px;margin:0 auto}
+    .cell{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;font-size:48px;cursor:pointer;border-radius:8px;background:linear-gradient(180deg,rgba(255,255,255,0.01),rgba(0,0,0,0.15));transition:transform .12s ease,background .12s}
+    .cell:hover{transform:translateY(-4px)}
+    .info{display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:8px}
+    .status{color:var(--muted)}
+    .scores{display:flex;gap:12px;flex-wrap:wrap}
+    .score{background:rgba(255,255,255,0.02);padding:8px 10px;border-radius:8px;color:var(--muted)}
+    .line{position:absolute;height:6px;background:rgba(16,185,129,0.95);border-radius:4px;transform-origin:center;z-index:5}
+    .footer{margin-top:12px;color:var(--muted);font-size:13px}
+    .mode-select{display:flex;gap:6px;flex-wrap:wrap}
+    .small{font-size:13px;padding:6px 8px}
+
+    /* setup dialog */
+    .overlay{position:fixed;inset:0;background:linear-gradient(rgba(2,6,23,0.75),rgba(2,6,23,0.9));display:flex;align-items:center;justify-content:center;z-index:50}
+    .dialog{background:#0b1220;padding:20px;border-radius:12px;max-width:420px;width:100%;color:#e6eef8;display:flex;flex-direction:column;gap:12px;box-shadow:0 8px 30px rgba(0,0,0,0.6)}
+    .dialog h2{margin:0 0 8px;font-size:18px}
+    .row{display:flex;gap:8px}
+    .col{flex:1}
+    label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px}
+    input[type="text"], input[type="number"], select{width:100%;padding:8px;border-radius:8px;border:none;outline:none;background:#111827;color:#e6eef8}
+
+    .leaderboard{margin-top:16px;background:rgba(255,255,255,0.02);padding:12px;border-radius:8px}
+    .leaderboard h3{margin:0 0 8px;font-size:16px;color:var(--muted)}
+    .leaderboard table{width:100%;border-collapse:collapse;font-size:14px}
+    .leaderboard th,.leaderboard td{padding:6px;text-align:left}
+    .leaderboard th{color:var(--accent)}
+
+    @media (max-width:1000px){.wrap{padding:12px}.board{max-width:520px}}
+    @media (max-width:520px){.cell{font-size:30px}.wrap{padding:10px}}
+  </style>
+</head>
+<body>
+  <div class="overlay" id="setupOverlay">
+    <div class="dialog">
+      <h2>Oyun Ayarları</h2>
+
+      <div>
+        <label>Oyun modu</label>
+        <select id="setupMode">
+          <option value="pvp">2 Oyuncu (Geçiş)</option>
+          <option value="cpu">Bilgisayara Karşı</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Oyuncu 1 adı</label>
+        <input type="text" id="player1Name" placeholder="Oyuncu 1" />
+        <label style="margin-top:8px">Oyuncu 1 işareti</label>
+        <select id="player1Symbol">
+          <option value="X">X</option>
+          <option value="O">O</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Oyuncu 2 adı</label>
+        <input type="text" id="player2Name" placeholder="Oyuncu 2" />
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <label>Tahta boyutu (N x N)</label>
+          <input type="number" id="boardSize" min="3" max="10" value="3" />
+        </div>
+        <div class="col">
+          <label>Kazanma uzunluğu (k)</label>
+          <input type="number" id="winLen" min="3" max="3" value="3" />
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn" id="resetLeaderboard">Liderliği Sıfırla</button>
+        <button class="btn primary" id="startGame">Başla</button>
+      </div>
+
+      <div style="font-size:13px;color:var(--muted)">Not: Minimax (yenilmez AI) sadece küçük tahtalarda (en fazla 4x4) aktif olur. Daha büyük tahtalarda AI hızlı ama sezgisel bir strateji kullanır.</div>
+    </div>
+  </div>
+
+  <div class="wrap" id="app" style="display:none">
+    <header>
+      <h1>XOX — Tic‑Tac‑Toe</h1>
+      <div class="controls">
+        <div class="mode-select">
+          <button class="btn small" id="mode-pvp">2 Oyuncu</button>
+          <button class="btn small" id="mode-cpu">Bilgisayara Karşı</button>
+        </div>
+        <button class="btn" id="undo">Geri Al</button>
+        <button class="btn primary" id="reset">Yeni Oyun</button>
+      </div>
+    </header>
+
+    <div style="position:relative">
+      <div class="board" id="board"></div>
+    </div>
+
+    <div class="info">
+      <div>
+        <div class="status" id="status">Sıra: -</div>
+        <div class="footer">Mod: <span id="modeText">-</span> · Tahta: <span id="boardInfo">-</span></div>
+      </div>
+      <div class="scores">
+        <div class="score" id="p1Score">Oyuncu 1: 0</div>
+        <div class="score" id="p2Score">Oyuncu 2: 0</div>
+        <div class="score">Beraberlik: <span id="scoreD">0</span></div>
+      </div>
+    </div>
+
+    <div class="leaderboard" id="leaderboard">
+      <h3>Lider Tablosu</h3>
+      <table>
+        <thead><tr><th>Oyuncu</th><th>Skor</th></tr></thead>
+        <tbody id="leaderRows"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    // --- DOM
+    const setupOverlay = document.getElementById('setupOverlay');
+    const startGameBtn = document.getElementById('startGame');
+    const resetLeaderboardBtn = document.getElementById('resetLeaderboard');
+    const setupMode = document.getElementById('setupMode');
+    const player1NameInput = document.getElementById('player1Name');
+    const player2NameInput = document.getElementById('player2Name');
+    const player1SymbolSelect = document.getElementById('player1Symbol');
+    const boardSizeInput = document.getElementById('boardSize');
+    const winLenInput = document.getElementById('winLen');
+
+    const app = document.getElementById('app');
+    const boardEl = document.getElementById('board');
+    const statusEl = document.getElementById('status');
+    const resetBtn = document.getElementById('reset');
+    const undoBtn = document.getElementById('undo');
+    const modePvp = document.getElementById('mode-pvp');
+    const modeCpu = document.getElementById('mode-cpu');
+    const modeText = document.getElementById('modeText');
+    const boardInfo = document.getElementById('boardInfo');
+    const scoreD = document.getElementById('scoreD');
+    const p1ScoreEl = document.getElementById('p1Score');
+    const p2ScoreEl = document.getElementById('p2Score');
+    const leaderRows = document.getElementById('leaderRows');
+
+    // --- Game state
+    let N = 3; // board size
+    let K = 3; // win length
+    let board = [];
+    let player1 = {name:'Oyuncu 1',symbol:'X',score:0};
+    let player2 = {name:'Oyuncu 2',symbol:'O',score:0, isAI:false};
+    let current = 'X';
+    let history = [];
+    let gameOver = false;
+    let mode = 'pvp';
+    let scores = {D:0};
+
+    const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+
+    // --- helpers
+    function initGame(size, winLen){
+      N = size; K = winLen;
+      board = Array(N*N).fill('');
+      history = [];
+      gameOver = false;
+      // grid columns
+      boardEl.style.gridTemplateColumns = `repeat(${N},1fr)`;
+      render();
+    }
+
+    function render(){
+      boardEl.innerHTML='';
+      const fontSize = Math.max(18, Math.floor(56 - (N-3)*8));
+      board.forEach((v,i)=>{
+        const c = document.createElement('div');
+        c.className='cell';
+        c.dataset.idx = i;
+        c.style.fontSize = fontSize + 'px';
+        c.textContent = v;
+        c.addEventListener('click', onCellClick);
+        boardEl.appendChild(c);
+      });
+      const currentName = current===player1.symbol ? player1.name : player2.name + (player2.isAI ? ' (Bilgisayar)' : '');
+      statusEl.textContent = gameOver ? (getWinner(board) ? (getWinner(board).playerName + ' kazandı!') : 'Beraberlik') : ('Sıra: ' + currentName);
+      modeText.textContent = mode==='cpu' ? 'Bilgisayara Karşı' : '2 Oyuncu';
+      boardInfo.textContent = `${N} x ${N}, kazanma: ${K}`;
+      p1ScoreEl.textContent = player1.name+': '+player1.score;
+      p2ScoreEl.textContent = player2.name+': '+player2.score;
+      scoreD.textContent = scores.D;
+      updateLeaderboard();
+    }
+
+    function onCellClick(e){
+      const i = Number(e.currentTarget.dataset.idx);
+      if(gameOver || board[i]) return;
+      makeMove(i,current);
+      // if human played and AI to move
+      if(mode==='cpu' && !gameOver && current===player2.symbol && player2.isAI){
+        setTimeout(()=>{
+          const ai = bestMove(board,player2.symbol);
+          if(ai!=null) makeMove(ai,player2.symbol);
+        },150);
+      }
+    }
+
+    function makeMove(i,player){
+      if(board[i]) return false;
+      history.push(board.slice());
+      board[i]=player;
+      const w = getWinner(board);
+      if(w){
+        gameOver=true;
+        highlightWin(w.indexes);
+        if(w.player===player1.symbol){player1.score++;}
+        else if(w.player===player2.symbol){player2.score++;}
+      } else if(board.every(x=>x)){
+        gameOver=true; scores.D++;
+      } else {
+        current = (player===player1.symbol) ? player2.symbol : player1.symbol;
+      }
+      render();
+      return true;
+    }
+
+    function getWinner(b){
+      // scan every cell and every direction for K in a row
+      for(let r=0;r<N;r++){
+        for(let c=0;c<N;c++){
+          const idx = r*N + c;
+          const p = b[idx];
+          if(!p) continue;
+          for(const [dr,dc] of dirs){
+            const indexes = [idx];
+            let k;
+            for(k=1;k<K;k++){
+              const rr = r + dr*k;
+              const cc = c + dc*k;
+              if(rr<0||rr>=N||cc<0||cc>=N) break;
+              const id2 = rr*N + cc;
+              if(b[id2] !== p) break;
+              indexes.push(id2);
+            }
+            if(indexes.length === K){
+              return {player:p, indexes, playerName:(p===player1.symbol?player1.name:player2.name)};
+            }
+          }
+        }
+      }
+      return null;
+    }
+
+    function highlightWin(idxArr){
+      const old = document.querySelector('.line'); if(old) old.remove();
+      // draw line from first to last win cell
+      const rects = idxArr.map(i=>boardEl.children[i].getBoundingClientRect());
+      const parentRect = boardEl.getBoundingClientRect();
+      const a = {x: rects[0].left + rects[0].width/2 - parentRect.left, y: rects[0].top + rects[0].height/2 - parentRect.top};
+      const b = {x: rects[idxArr.length-1].left + rects[idxArr.length-1].width/2 - parentRect.left, y: rects[idxArr.length-1].top + rects[idxArr.length-1].height/2 - parentRect.top};
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const len = Math.hypot(dx,dy);
+      const angle = Math.atan2(dy,dx) * 180/Math.PI;
+      const line = document.createElement('div');
+      line.className='line';
+      line.style.width = len + 'px';
+      line.style.left = (a.x) + 'px';
+      line.style.top = (a.y - 3) + 'px';
+      line.style.transform = 'rotate(' + angle + 'deg)';
+      boardEl.appendChild(line);
+    }
+
+    // --- Undo / Reset ---
+    resetBtn.addEventListener('click', ()=>{
+      board = Array(N*N).fill(''); current=player1.symbol; history=[]; gameOver=false;
+      document.querySelector('.line')?.remove(); render();
+    });
+
+    undoBtn.addEventListener('click', ()=>{
+      if(history.length===0 || gameOver) return;
+      board = history.pop();
+      current = board.filter(x=>x).length % 2 === 0 ? player1.symbol : player2.symbol;
+      document.querySelector('.line')?.remove(); render();
+    });
+
+    // --- Mode buttons sync with setup selection ---
+    modePvp.addEventListener('click', ()=>{mode='pvp'; setupMode.value='pvp'; modePvp.classList.add('primary'); modeCpu.classList.remove('primary');});
+    modeCpu.addEventListener('click', ()=>{mode='cpu'; setupMode.value='cpu'; modeCpu.classList.add('primary'); modePvp.classList.remove('primary');});
+    setupMode.addEventListener('change', ()=>{mode = setupMode.value; if(mode==='cpu'){modeCpu.classList.add('primary');modePvp.classList.remove('primary'); player2NameInput.value = 'Bilgisayar'; player2NameInput.disabled = true;} else {modePvp.classList.add('primary');modeCpu.classList.remove('primary'); player2NameInput.disabled = false;}}
+    );
+
+    // --- Leaderboard ---
+    function updateLeaderboard(){
+      leaderRows.innerHTML='';
+      const arr=[{name:player1.name,score:player1.score},{name:player2.name,score:player2.score}];
+      arr.sort((a,b)=>b.score-a.score);
+      arr.forEach(p=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML='<td>'+escapeHtml(p.name)+'</td><td>'+p.score+'</td>';
+        leaderRows.appendChild(tr);
+      });
+    }
+
+    resetLeaderboardBtn.addEventListener('click', ()=>{
+      player1.score=0; player2.score=0; scores.D=0; render();
+    });
+
+    function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+    // --- AI / Best move ---
+    function bestMove(b,player){
+      const empty = b.map((v,i)=>v?null:i).filter(x=>x!==null);
+      if(empty.length===0) return null;
+      const opponent = player===player1.symbol?player2.symbol:player1.symbol;
+
+      // if small board (<=16 cells) use minimax
+      if(N*N <= 16){
+        let bestScore = -Infinity; let move = null;
+        for(const i of empty){
+          b[i]=player;
+          const score = minimax(b,false,player,opponent);
+          b[i]='';
+          if(score>bestScore){bestScore=score;move=i}
+        }
+        return move;
+      }
+
+      // heuristic for larger boards: win if possible, block if needed, center, else random near center
+      const winIdx = canWinNext(b,player);
+      if(winIdx!==-1) return winIdx;
+      const blockIdx = canWinNext(b,opponent);
+      if(blockIdx!==-1) return blockIdx;
+      const center = Math.floor((N*N)/2);
+      if(!b[center]) return center;
+      // prefer moves closer to center
+      let best=null; let bestDist=Infinity;
+      const cx = Math.floor(N/2), cy = Math.floor(N/2);
+      for(const i of empty){
+        const r = Math.floor(i/N), c = i%N;
+        const d = Math.hypot(r-cy, c-cx);
+        if(d<bestDist){bestDist=d;best=i}
+      }
+      return best!==null?best:empty[Math.floor(Math.random()*empty.length)];
+    }
+
+    function canWinNext(b,player){
+      for(let i=0;i<b.length;i++){
+        if(b[i]) continue;
+        b[i]=player;
+        const w = getWinner(b);
+        b[i]='';
+        if(w && w.player===player) return i;
+      }
+      return -1;
+    }
+
+    function minimax(b,isMaximizing,player,opponent){
+      const winner = getWinner(b);
+      if(winner){
+        if(winner.player===player) return 100;
+        if(winner.player===opponent) return -100;
+      }
+      if(b.every(x=>x)) return 0;
+      if(isMaximizing){
+        let best = -Infinity;
+        for(let i=0;i<b.length;i++){
+          if(!b[i]){b[i]=player; best = Math.max(best, minimax(b,false,player,opponent)); b[i]='';}
+        }
+        return best - 1; // prefer faster wins
+      } else {
+        let best = Infinity;
+        for(let i=0;i<b.length;i++){
+          if(!b[i]){b[i]=opponent; best = Math.min(best, minimax(b,true,player,opponent)); b[i]='';}
+        }
+        return best + 1;
+      }
+    }
+
+    // --- Start game (from overlay) ---
+    // ensure winLen max updates with board size
+    boardSizeInput.addEventListener('input', ()=>{ const v = Math.max(3, Math.min(10, Number(boardSizeInput.value)||3)); boardSizeInput.value = v; winLenInput.max = v; if(Number(winLenInput.value) > v) winLenInput.value = v; });
+
+    // set default states based on initial mode
+    setupMode.dispatchEvent(new Event('change'));
+
+    startGameBtn.addEventListener('click', ()=>{
+      const n1 = player1NameInput.value.trim() || 'Oyuncu 1';
+      const n2 = player2NameInput.value.trim() || 'Oyuncu 2';
+      const sym = player1SymbolSelect.value;
+      const size = Math.max(3, Math.min(10, Number(boardSizeInput.value)||3));
+      const winLen = Math.max(3, Math.min(size, Number(winLenInput.value)||3));
+
+      mode = setupMode.value;
+      player1 = {name:n1, symbol:sym, score: (player1 && player1.score)?player1.score:0};
+      if(mode==='cpu'){
+        player2 = {name:'Bilgisayar', symbol:(sym==='X'?'O':'X'), score: (player2 && player2.score)?player2.score:0, isAI:true};
+      } else {
+        player2 = {name:n2, symbol:(sym==='X'?'O':'X'), score: (player2 && player2.score)?player2.score:0, isAI:false};
+      }
+
+      current = player1.symbol;
+      initGame(size, winLen);
+      setupOverlay.style.display='none';
+      app.style.display='block';
+      // mark external mode buttons
+      if(mode==='cpu'){modeCpu.classList.add('primary');modePvp.classList.remove('primary');}
+      else{modePvp.classList.add('primary');modeCpu.classList.remove('primary');}
+      render();
+    });
+
+    // allow reopening setup quickly (double-click title)
+    document.querySelector('h1').addEventListener('dblclick', ()=>{ setupOverlay.style.display='flex'; app.style.display='none'; });
+
+    // initial render placeholders
+    player1.name='Oyuncu 1'; player2.name='Oyuncu 2'; updateLeaderboard();
+  </script>
+</body>
+</html>
